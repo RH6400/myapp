@@ -1,0 +1,40 @@
+name: build-debug
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip app.zip -d src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: bash setup.sh
+        working-directory: src/routine_coach
+      - id: build
+        working-directory: src/routine_coach
+        run: |
+          set +e
+          flutter build apk --release > build.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+      - if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: log-${{ github.run_number }}
+          prerelease: true
+          files: src/routine_coach/build.log
+      - if: steps.build.outputs.code == '0'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          files: src/routine_coach/build/app/outputs/flutter-apk/app-release.apk
+      - if: steps.build.outputs.code != '0'
+        run: exit 1
